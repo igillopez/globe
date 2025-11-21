@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Globo interactivo de ciudades</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+</head>
+<body>
+  <main class="layout">
+    <section class="controls">
+      <h1>Marcador de ciudades por proveedor</h1>
+      <div id="drop-zone" class="drop-zone">
+        <p>Arrastra tu CSV aquí</p>
+        <small>Formato: provider,city,latitude,longitude</small>
+      </div>
+      <p class="helper-text">
+        También tienes un CSV de ejemplo cargado por defecto con Madrid, Barcelona,
+        Paris y Berlin para que puedas ver la interacción inmediatamente.
+      </p>
+      <div class="file-input">
+        <label for="file-selector">O selecciona un archivo CSV</label>
+        <input type="file" id="file-selector" accept=".csv" />
+      </div>
+      <div class="selector">
+        <label for="provider-select">Proveedor:</label>
+        <select id="provider-select">
+          <option value="" disabled selected>Selecciona un proveedor</option>
+        </select>
+      </div>
+      <div class="summary" id="summary">
+        <p>Proveedor seleccionado: ninguno</p>
+        <p>Número de ciudades: 0</p>
+      </div>
+    </section>
+    <section class="globe-container">
+      <div id="globe"></div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
