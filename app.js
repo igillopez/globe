@@ -5,65 +5,84 @@ const summaryBox = document.getElementById('summary');
 const globeContainer = document.getElementById('globe');
 
 let providersData = {};
-let globe;
+let engine;
 let scene;
 let camera;
-let renderer;
-let controls;
+let globeMesh;
+let markerMeshes = [];
+
+function latLonToVector3(lat, lon, radius) {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
+
+  const x = -(radius * Math.sin(phi) * Math.cos(theta));
+  const z = radius * Math.sin(phi) * Math.sin(theta);
+  const y = radius * Math.cos(phi);
+
+  return new BABYLON.Vector3(x, y, z);
+}
 
 function initGlobe() {
-  const width = globeContainer.clientWidth;
-  const height = globeContainer.clientHeight;
+  const canvas = document.createElement('canvas');
+  canvas.id = 'globe-canvas';
+  globeContainer.appendChild(canvas);
 
-  scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
-  camera.position.z = 350;
+  engine = new BABYLON.Engine(canvas, true);
+  scene = new BABYLON.Scene(engine);
+  scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(width, height);
-  renderer.setPixelRatio(window.devicePixelRatio || 1);
-  globeContainer.appendChild(renderer.domElement);
+  camera = new BABYLON.ArcRotateCamera('camera', -Math.PI / 2, Math.PI / 2.2, 4.3, BABYLON.Vector3.Zero(), scene);
+  camera.attachControl(canvas, true);
+  camera.wheelDeltaPercentage = 0.01;
+  camera.minZ = 0.1;
 
-  const ambientLight = new THREE.AmbientLight(0xffffff, 1.1);
-  scene.add(ambientLight);
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
-  directionalLight.position.set(1, 1, 1);
-  scene.add(directionalLight);
+  const light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(0, 1, 0), scene);
+  light.intensity = 1.1;
 
-  globe = new ThreeGlobe()
-    .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
-    .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
-    .showAtmosphere(true)
-    .atmosphereColor('#5e81f4')
-    .atmosphereAltitude(0.15)
-    .pointAltitude(() => 0.04)
-    .pointColor(() => 'red')
-    .pointRadius(0.6);
+  const globeMaterial = new BABYLON.StandardMaterial('globeMaterial', scene);
+  globeMaterial.diffuseTexture = new BABYLON.Texture(
+    'https://upload.wikimedia.org/wikipedia/commons/5/5f/Equirectangular-projection.jpg',
+    scene,
+    true,
+    false,
+    BABYLON.Texture.TRILINEAR_SAMPLINGMODE
+  );
+  globeMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
 
-  scene.add(globe);
+  globeMesh = BABYLON.MeshBuilder.CreateSphere('globe', { segments: 64, diameter: 3.5 }, scene);
+  globeMesh.material = globeMaterial;
 
-  controls = new THREE.OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.enablePan = false;
+  engine.runRenderLoop(() => {
+    globeMesh.rotation.y += 0.0008;
+    scene.render();
+  });
 
-  window.addEventListener('resize', onWindowResize);
-
-  animate();
+  window.addEventListener('resize', () => {
+    engine.resize();
+  });
 }
 
-function animate() {
-  requestAnimationFrame(animate);
-  globe.rotation.y += 0.0008;
-  controls.update();
-  renderer.render(scene, camera);
+function clearMarkers() {
+  markerMeshes.forEach((marker) => marker.dispose());
+  markerMeshes = [];
 }
 
-function onWindowResize() {
-  const width = globeContainer.clientWidth;
-  const height = globeContainer.clientHeight;
-  camera.aspect = width / height;
-  camera.updateProjectionMatrix();
-  renderer.setSize(width, height);
+function renderCitiesOnGlobe(cities) {
+  if (!globeMesh || !scene) return;
+  clearMarkers();
+
+  const radius = globeMesh.getBoundingInfo().boundingSphere.radius;
+  const markerMaterial = new BABYLON.StandardMaterial('markerMaterial', scene);
+  markerMaterial.diffuseColor = BABYLON.Color3.Red();
+  markerMaterial.emissiveColor = new BABYLON.Color3(0.5, 0, 0);
+
+  cities.forEach((city) => {
+    const position = latLonToVector3(city.latitude, city.longitude, radius + 0.05);
+    const marker = BABYLON.MeshBuilder.CreateSphere(`marker-${city.city}`, { diameter: 0.07 }, scene);
+    marker.position = position;
+    marker.material = markerMaterial;
+    markerMeshes.push(marker);
+  });
 }
 
 function parseCsv(text) {
@@ -162,11 +181,6 @@ function handleFile(file) {
     updateProviderSelect();
   };
   reader.readAsText(file);
-}
-
-function renderCitiesOnGlobe(cities) {
-  if (!globe) return;
-  globe.pointsData(cities);
 }
 
 function loadInitialData() {
